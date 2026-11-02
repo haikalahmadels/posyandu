@@ -32,6 +32,16 @@ Daftar lengkap endpoint: [`docs/05-api-spec.md`](docs/05-api-spec.md). Skema dat
 
 Catatan: `DELETE` memakai *soft delete* — data hilang dari API tetapi baris tetap tersimpan di database (kolom `deleted_at`).
 
+## Hasil uji Postman (`/api/balita`)
+
+| Metode | Screenshot |
+|---|---|
+| POST — tambah balita | ![POST](docs/assets/postman/post.png) |
+| GET — semua balita | ![GET semua](docs/assets/postman/get-semua.png) |
+| GET — balita berdasarkan ID | ![GET by ID](docs/assets/postman/get-by-id.png) |
+| PUT — ubah balita | ![PUT](docs/assets/postman/put.png) |
+| DELETE — hapus balita | ![DELETE](docs/assets/postman/delete.png) |
+
 ## Perintah
 | Perintah | Fungsi |
 |---|---|
