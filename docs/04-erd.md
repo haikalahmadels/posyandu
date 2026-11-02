@@ -6,7 +6,7 @@ Database: **PostgreSQL 16** (kompatibel ≥ 13). Konvensi penamaan: `snake_case`
 
 ## 1. Diagram
 
-Versi gambar: [`assets/erd.png`](assets/erd.png) — **belum diperbarui**, masih memuat tabel `posyandu` yang sudah dihapus (ADR-015); ganti dengan ekspor gambar dari dbdiagram. Untuk tugas tetap dipakai link dbdiagram (§7).
+Versi gambar (ekspor dbdiagram): [`assets/erd.png`](assets/erd.png). Untuk tugas tetap dipakai link dbdiagram (§7).
 
 ```mermaid
 erDiagram
