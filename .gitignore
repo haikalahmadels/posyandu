@@ -1,0 +1,11 @@
+node_modules
+.env
+
+# tooling lokal, bukan bagian dari tugas
+.agents/
+.claude/
+.superpowers/
+skills-lock.json
+
+# laporan kelompok (berisi nama anggota), dikumpulkan terpisah
+docs/*.docx
