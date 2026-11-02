@@ -3,19 +3,15 @@
 -- Ganti password admin setelah login pertama: PATCH /api/auth/password
 -- NIK diawali 9999 = fiktif.
 
-INSERT INTO posyandu (id, nama, alamat, desa, kecamatan, kabupaten_kota) VALUES
-  (1, 'Posyandu Melati', 'Balai RW 02', 'Sukamaju', 'Sukasari', 'Kabupaten Contoh')
+INSERT INTO kader (id, nama, username, password_hash, no_hp, role) VALUES
+  (1, 'Admin Posyandu', 'admin', '$2b$10$b8PbxsguW3IOP8sJ3cM4UuRu6V7wOyCStHOYyaUdciQMSbM96WZrO', NULL, 'admin'),
+  (2, 'Sri Wahyuni', 'sri', '$2b$10$GQxKzi6q.0svrdH0zOf6yO2Snnm/R8oHnwdRJg.gNyjSzLth543Lq', '081234567890', 'kader')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO kader (id, posyandu_id, nama, username, password_hash, no_hp, role) VALUES
-  (1, 1, 'Admin Posyandu', 'admin', '$2b$10$b8PbxsguW3IOP8sJ3cM4UuRu6V7wOyCStHOYyaUdciQMSbM96WZrO', NULL, 'admin'),
-  (2, 1, 'Sri Wahyuni', 'sri', '$2b$10$GQxKzi6q.0svrdH0zOf6yO2Snnm/R8oHnwdRJg.gNyjSzLth543Lq', '081234567890', 'kader')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO ibu (id, posyandu_id, nik, nama, tanggal_lahir, alamat, no_hp, created_at) VALUES
-  (1, 1, '9999010101950001', 'Siti Aminah', '1995-01-01', 'RT 01 / RW 02', '081234567801', '2026-08-01'),
-  (2, 1, '9999010101980002', 'Dewi Lestari', '1998-05-12', 'RT 03 / RW 02', '081234567802', '2026-08-01'),
-  (3, 1, '9999010101920003', 'Rina Marlina', '1992-11-20', 'RT 02 / RW 02', NULL, '2026-08-01')
+INSERT INTO ibu (id, nik, nama, tanggal_lahir, alamat, no_hp, created_at) VALUES
+  (1, '9999010101950001', 'Siti Aminah', '1995-01-01', 'RT 01 / RW 02', '081234567801', '2026-08-01'),
+  (2, '9999010101980002', 'Dewi Lestari', '1998-05-12', 'RT 03 / RW 02', '081234567802', '2026-08-01'),
+  (3, '9999010101920003', 'Rina Marlina', '1992-11-20', 'RT 02 / RW 02', NULL, '2026-08-01')
 ON CONFLICT (id) DO NOTHING;
 
 -- Dewi: sedang hamil (hamil=true) dan punya satu balita.
@@ -45,7 +41,6 @@ INSERT INTO pemeriksaan_ibu_hamil (id, ibu_id, kader_id, tanggal_kunjungan, usia
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert dengan id eksplisit tidak memajukan sequence; samakan agar POST berikutnya tidak bentrok.
-SELECT setval(pg_get_serial_sequence('posyandu', 'id'), (SELECT MAX(id) FROM posyandu));
 SELECT setval(pg_get_serial_sequence('kader', 'id'), (SELECT MAX(id) FROM kader));
 SELECT setval(pg_get_serial_sequence('ibu', 'id'), (SELECT MAX(id) FROM ibu));
 SELECT setval(pg_get_serial_sequence('balita', 'id'), (SELECT MAX(id) FROM balita));

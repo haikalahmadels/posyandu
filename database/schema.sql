@@ -1,22 +1,11 @@
 -- =====================================================================
 -- Sistem Monitoring Kesehatan Ibu & Anak (Posyandu) — skema PostgreSQL
+-- Satu database = satu posyandu di satu desa (ADR-015).
 -- =====================================================================
-
-CREATE TABLE posyandu (
-  id              SERIAL PRIMARY KEY,
-  nama            VARCHAR(100) NOT NULL,
-  alamat          TEXT,
-  desa            VARCHAR(100),
-  kecamatan       VARCHAR(100),
-  kabupaten_kota  VARCHAR(100),
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE TABLE kader (
   id              SERIAL PRIMARY KEY,
-  posyandu_id     INTEGER NOT NULL REFERENCES posyandu(id) ON DELETE RESTRICT,
-  nama            VARCHAR(100) NOT NULL,
+  nama           VARCHAR(100) NOT NULL,
   username        VARCHAR(30) NOT NULL UNIQUE,
   password_hash   VARCHAR(255) NOT NULL,
   no_hp           VARCHAR(15),
@@ -29,8 +18,7 @@ CREATE TABLE kader (
 
 CREATE TABLE ibu (
   id              SERIAL PRIMARY KEY,
-  posyandu_id     INTEGER NOT NULL REFERENCES posyandu(id) ON DELETE RESTRICT,
-  nik             CHAR(16) NOT NULL,
+  nik            CHAR(16) NOT NULL,
   nama            VARCHAR(100) NOT NULL,
   tanggal_lahir   DATE NOT NULL,
   alamat          TEXT NOT NULL,
@@ -104,8 +92,7 @@ CREATE UNIQUE INDEX uq_pb_per_tanggal   ON pemeriksaan_balita (balita_id, tangga
 CREATE UNIQUE INDEX uq_pih_per_tanggal  ON pemeriksaan_ibu_hamil (ibu_id, tanggal_kunjungan) WHERE deleted_at IS NULL;
 
 -- Indeks pencarian, riwayat, dan rekap
-CREATE INDEX idx_kader_posyandu   ON kader (posyandu_id);
-CREATE INDEX idx_ibu_posyandu     ON ibu (posyandu_id, nama);
+CREATE INDEX idx_ibu_nama         ON ibu (nama);
 CREATE INDEX idx_balita_ibu       ON balita (ibu_id);
 CREATE INDEX idx_pb_tanggal       ON pemeriksaan_balita (tanggal_kunjungan);
 CREATE INDEX idx_pb_kader         ON pemeriksaan_balita (kader_id);

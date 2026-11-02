@@ -32,8 +32,8 @@ npm test             # tes integrasi; memakai DB terpisah <nama db>_test
 - **Lapis:** routes → controllers → services. SQL **hanya** di `src/services/`. Controller tidak menyentuh `pg`.
 - **SQL selalu terparameter** (`$1`, `$2`, ...). Jangan pernah menyambung string input ke SQL.
 - **Soft delete:** setiap SELECT pada `ibu`, `balita`, `pemeriksaan_*` memfilter `deleted_at IS NULL`, **termasuk tabel induk yang di-JOIN**. DELETE = `UPDATE ... SET deleted_at = NOW()`.
-- **Scoping posyandu:** setiap akses data di-scope ke `req.user.posyandu_id` (lewat `ibu.posyandu_id`). Data posyandu lain → **404**.
-- **Field dari server, bukan body:** `kader_id` = `req.user.id`, `posyandu_id` = `req.user.posyandu_id`.
+- **Satu posyandu:** sistem hanya melayani satu posyandu di satu desa. Tidak ada tabel/kolom `posyandu` dan tidak ada scoping per posyandu (ADR-015).
+- **Field dari server, bukan body:** `kader_id` = `req.user.id`.
 - **Jangan pernah** mengembalikan `password_hash`. Pilih kolom kader secara eksplisit.
 - **Amplop respons** selalu `{ success, message, data, meta? }` / `{ success: false, message, errors? }`. Pakai helper di `src/utils/response.js` dan lempar `ApiError` untuk error.
 - **Validasi** dengan zod lewat middleware `validate`. Hasilnya dibaca dari `req.validated`. **Jangan menimpa `req.query`** (read-only di Express 5).
@@ -49,7 +49,7 @@ npm test             # tes integrasi; memakai DB terpisah <nama db>_test
 - Kode error pg: `23505` unique → 409, `23503` FK → 409, `23514` check → 400, `22P02` → 400. Pemetaan nama constraint ada di `docs/03-architecture.md` §8.
 
 ## Di luar lingkup Fase 1 — jangan dibuat tanpa diminta
-Grafik/status gizi WHO, indikator risiko, jadwal/pengingat, imunisasi, ekspor PDF/Excel, dashboard statistik, akun ibu, endpoint multi-posyandu, refresh token.
+Grafik/status gizi WHO, indikator risiko, jadwal/pengingat, imunisasi, ekspor PDF/Excel, dashboard statistik, akun ibu, multi-posyandu (tabel/kolom posyandu), refresh token.
 
 ## Ketentuan tugas yang tidak boleh terlewat
 - `.gitignore` memuat `node_modules` dan `.env`.

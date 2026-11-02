@@ -4,11 +4,11 @@ const ApiError = require('../utils/ApiError');
 const { paged, binder } = require('./sql');
 
 // Kolom eksplisit: password_hash tidak pernah ikut ke respons.
-const KADER_COLS = 'id, posyandu_id, nama, username, no_hp, role, is_active, created_at, updated_at';
+const KADER_COLS = 'id, nama, username, no_hp, role, is_active, created_at, updated_at';
 
-async function list(posyanduId, { q, is_active, page, limit }) {
+async function list({ q, is_active, page, limit }) {
   const { params, p } = binder();
-  const where = [`posyandu_id = ${p(posyanduId)}`];
+  const where = [];
   if (q) {
     const pola = p(`%${q}%`);
     where.push(`(nama ILIKE ${pola} OR username ILIKE ${pola})`);
@@ -17,20 +17,17 @@ async function list(posyanduId, { q, is_active, page, limit }) {
   return paged({ select: KADER_COLS, from: 'kader', where, params, orderBy: 'nama, id' }, { page, limit });
 }
 
-async function findById(posyanduId, id, client = { query }) {
-  const { rows } = await client.query(
-    `SELECT ${KADER_COLS} FROM kader WHERE id = $1 AND posyandu_id = $2`,
-    [id, posyanduId]
-  );
+async function findById(id, client = { query }) {
+  const { rows } = await client.query(`SELECT ${KADER_COLS} FROM kader WHERE id = $1`, [id]);
   if (!rows[0]) throw new ApiError(404, 'Kader tidak ditemukan');
   return rows[0];
 }
 
-async function create(posyanduId, data) {
+async function create(data) {
   const { rows } = await query(
-    `INSERT INTO kader (posyandu_id, nama, username, password_hash, no_hp, role)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${KADER_COLS}`,
-    [posyanduId, data.nama, data.username, await bcrypt.hash(data.password, 10), data.no_hp, data.role]
+    `INSERT INTO kader (nama, username, password_hash, no_hp, role)
+     VALUES ($1, $2, $3, $4, $5) RETURNING ${KADER_COLS}`,
+    [data.nama, data.username, await bcrypt.hash(data.password, 10), data.no_hp, data.role]
   );
   return rows[0];
 }
@@ -43,16 +40,13 @@ async function cekAturanAdmin(client, user, target, berikut) {
   if (target.id === user.id) {
     throw new ApiError(400, 'Anda tidak dapat menonaktifkan atau menurunkan role akun sendiri');
   }
-  const { rows } = await client.query(
-    "SELECT id FROM kader WHERE posyandu_id = $1 AND role = 'admin' AND is_active FOR UPDATE",
-    [user.posyandu_id]
-  );
+  const { rows } = await client.query("SELECT id FROM kader WHERE role = 'admin' AND is_active FOR UPDATE");
   if (rows.length <= 1) throw new ApiError(409, 'Minimal harus ada satu admin aktif');
 }
 
 function update(user, id, data) {
   return withTransaction(async (client) => {
-    const target = await findById(user.posyandu_id, id, client);
+    const target = await findById(id, client);
     await cekAturanAdmin(client, user, target, data);
     const { rows } = await client.query(
       `UPDATE kader SET nama = $1, username = $2, no_hp = $3, role = $4, is_active = $5, updated_at = NOW()
@@ -66,18 +60,18 @@ function update(user, id, data) {
 // ADR-011: hapus kader = nonaktifkan, agar riwayat pencatatan tetap utuh.
 function deactivate(user, id) {
   return withTransaction(async (client) => {
-    const target = await findById(user.posyandu_id, id, client);
+    const target = await findById(id, client);
     await cekAturanAdmin(client, user, target, { role: target.role, is_active: false });
     await client.query('UPDATE kader SET is_active = FALSE, updated_at = NOW() WHERE id = $1', [id]);
     return { id };
   });
 }
 
-async function resetPassword(posyanduId, id, passwordBaru) {
-  const { rowCount } = await query(
-    'UPDATE kader SET password_hash = $1, updated_at = NOW() WHERE id = $2 AND posyandu_id = $3',
-    [await bcrypt.hash(passwordBaru, 10), id, posyanduId]
-  );
+async function resetPassword(id, passwordBaru) {
+  const { rowCount } = await query('UPDATE kader SET password_hash = $1, updated_at = NOW() WHERE id = $2', [
+    await bcrypt.hash(passwordBaru, 10),
+    id,
+  ]);
   if (!rowCount) throw new ApiError(404, 'Kader tidak ditemukan');
 }
 

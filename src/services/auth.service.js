@@ -3,37 +3,27 @@ const jwt = require('jsonwebtoken');
 const env = require('../config/env');
 const { query } = require('../db/pool');
 const ApiError = require('../utils/ApiError');
-const { KADER_COLS } = require('./kader.service');
+const { findById: me } = require('./kader.service');
 
 // Dipakai saat username tidak ada, agar waktu respons tidak membocorkan username yang valid.
 const DUMMY_HASH = bcrypt.hashSync('dummy-password', 10);
 
 async function login(username, password) {
   const { rows } = await query(
-    'SELECT id, nama, username, role, posyandu_id, is_active, password_hash FROM kader WHERE username = $1',
+    'SELECT id, nama, username, role, is_active, password_hash FROM kader WHERE username = $1',
     [username]
   );
   const kader = rows[0];
   const cocok = await bcrypt.compare(password, kader ? kader.password_hash : DUMMY_HASH);
   if (!kader || !cocok || !kader.is_active) throw new ApiError(401, 'Username atau password salah');
 
-  const token = jwt.sign({ role: kader.role, posyandu_id: kader.posyandu_id }, env.JWT_SECRET, {
+  const token = jwt.sign({ role: kader.role }, env.JWT_SECRET, {
     subject: String(kader.id),
     expiresIn: env.JWT_EXPIRES_IN,
     algorithm: 'HS256',
   });
-  const { id, nama, role, posyandu_id } = kader;
-  return { token, expires_in: env.JWT_EXPIRES_IN, kader: { id, nama, username: kader.username, role, posyandu_id } };
-}
-
-async function me(kaderId) {
-  const { rows } = await query(
-    `SELECT ${KADER_COLS},
-            (SELECT json_build_object('id', p.id, 'nama', p.nama) FROM posyandu p WHERE p.id = kader.posyandu_id) AS posyandu
-     FROM kader WHERE id = $1`,
-    [kaderId]
-  );
-  return rows[0];
+  const { id, nama, role } = kader;
+  return { token, expires_in: env.JWT_EXPIRES_IN, kader: { id, nama, username: kader.username, role } };
 }
 
 async function gantiPassword(kaderId, passwordLama, passwordBaru) {

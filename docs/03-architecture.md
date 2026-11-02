@@ -44,7 +44,7 @@ Monolit sederhana dengan **tiga lapis** (routes → controllers → services). T
 ├── package.json
 ├── database/
 │   ├── schema.sql             # DDL — lihat docs/04-erd.md §4
-│   ├── seed.sql               # posyandu + admin + data demo
+│   ├── seed.sql               # akun admin & kader + data demo
 │   └── run.js                 # runner db:schema / db:seed / db:reset (lihat §11)
 ├── postman/
 │   └── posyandu-api.postman_collection.json
@@ -64,9 +64,9 @@ Monolit sederhana dengan **tiga lapis** (routes → controllers → services). T
     │   └── errorHandler.js
     ├── routes/
     │   ├── index.js           # pasang semua router di /api
+    │   ├── health.routes.js
     │   ├── auth.routes.js
     │   ├── kader.routes.js
-    │   ├── posyandu.routes.js
     │   ├── ibu.routes.js
     │   ├── balita.routes.js
     │   ├── pemeriksaanBalita.routes.js
@@ -85,7 +85,7 @@ Monolit sederhana dengan **tiga lapis** (routes → controllers → services). T
 **Aturan lapis:**
 - **Routes:** hanya mendefinisikan path, middleware (`authenticate`, `authorize`, `validate`), dan controller.
 - **Controllers:** tidak berisi SQL. Membaca `req.validated` dan `req.user`, memanggil service, lalu mengirim respons lewat `utils/response.js`.
-- **Services:** satu-satunya tempat SQL. Menerima `posyanduId` sebagai parameter eksplisit (jangan membaca `req`). Melempar `ApiError` untuk kasus bisnis (404, 409).
+- **Services:** satu-satunya tempat SQL. Menerima nilai yang dibutuhkan (mis. `kaderId`) sebagai parameter eksplisit (jangan membaca `req`). Melempar `ApiError` untuk kasus bisnis (404, 409).
 
 ## 4. Alur request
 
@@ -100,11 +100,11 @@ sequenceDiagram
     K->>A: POST /api/pemeriksaan-balita (Bearer token)
     A->>D: SELECT kader aktif by id (dari token)
     A-->>K: 401 jika token invalid / kader nonaktif
-    A->>V: req.user = {id, role, posyandu_id}
+    A->>V: req.user = {id, nama, username, role}
     V-->>K: 400 + errors[] jika body tidak valid
     V->>C: req.validated.body
-    C->>S: create(posyanduId, kaderId, data)
-    S->>D: cek balita milik posyandu + tanggal ≥ tgl lahir
+    C->>S: create(kaderId, data)
+    S->>D: cek balita aktif + tanggal ≥ tgl lahir
     S-->>K: 404 / 400 lewat ApiError
     S->>D: INSERT ... RETURNING *
     D-->>S: row (atau 23505 → 409)
@@ -115,17 +115,15 @@ sequenceDiagram
 ## 5. Autentikasi & otorisasi
 
 - **Login:** `POST /api/auth/login` → cari `kader` by `username` → `bcrypt.compare`. Username tidak ada, password salah, dan akun nonaktif semuanya menghasilkan **401 dengan pesan yang sama** ("Username atau password salah") agar tidak membocorkan username yang valid.
-- **Token:** JWT HS256, payload `{ sub: kader.id, role, posyandu_id }`, masa berlaku `JWT_EXPIRES_IN` (default `8h`, satu hari kegiatan posyandu). Tidak ada refresh token di Fase 1.
-- **Middleware `authenticate`:** membaca header `Authorization: Bearer <token>`, memverifikasi token, lalu **memuat ulang kader dari DB** dan menolak (401) jika sudah tidak ada atau `is_active = false`. Dengan cara ini penonaktifan akun langsung berlaku tanpa daftar hitam token. `req.user = { id, nama, username, role, posyandu_id }`.
+- **Token:** JWT HS256, payload `{ sub: kader.id, role }`, masa berlaku `JWT_EXPIRES_IN` (default `8h`, satu hari kegiatan posyandu). Tidak ada refresh token di Fase 1.
+- **Middleware `authenticate`:** membaca header `Authorization: Bearer <token>`, memverifikasi token, lalu **memuat ulang kader dari DB** dan menolak (401) jika sudah tidak ada atau `is_active = false`. Dengan cara ini penonaktifan akun langsung berlaku tanpa daftar hitam token. `req.user = { id, nama, username, role }`.
 - **Middleware `authorize(...roles)`:** 403 jika `req.user.role` tidak termasuk.
-- **Scoping posyandu:** setiap query ke `ibu` menyertakan `WHERE posyandu_id = $n`. `balita` dan pemeriksaan di-scope lewat JOIN ke `ibu`. Data milik posyandu lain diperlakukan sebagai **404**, bukan 403.
+- **Tanpa scoping posyandu:** sistem hanya melayani satu posyandu ([ADR-015](06-decisions.md)), jadi semua pengguna yang login mengakses data yang sama. Pembatasan hanya berdasarkan role.
 
 | Resource | `kader` | `admin` |
 |---|---|---|
 | `/auth/*` | ✅ | ✅ |
 | `/ibu`, `/balita`, `/pemeriksaan-*`, `/laporan` | ✅ | ✅ |
-| `GET /posyandu` | ✅ | ✅ |
-| `PUT /posyandu` | ❌ 403 | ✅ |
 | `/kader` | ❌ 403 | ✅ |
 
 ## 6. Database access
@@ -159,9 +157,9 @@ Aturan:
 - Gagal → `ApiError(400, 'Data tidak valid', errors)`, di mana `errors = issues.map(i => ({ field: i.path.join('.'), message: i.message }))`.
 - Pesan error zod ditulis dalam Bahasa Indonesia (mis. `"Berat badan wajib diisi"`, `"Berat badan harus antara 0,5 dan 40 kg"`).
 - Body POST memakai skema *create* (kolom wajib = required). Body PUT memakai skema yang sama (PUT = ganti penuh; lihat [ADR-007](06-decisions.md)).
-- Field yang tidak dikenal dibuang (`.strip()`, default zod). Field yang diisi server (`kader_id`, `posyandu_id`, `id`, timestamp) tidak pernah diambil dari body.
+- Field yang tidak dikenal dibuang (`.strip()`, default zod). Field yang diisi server (`kader_id`, `id`, timestamp) tidak pernah diambil dari body.
 - String kosong pada field opsional (`""`) diperlakukan sebagai `null`.
-- Validasi yang butuh database (tanggal kunjungan vs tanggal lahir, kepemilikan posyandu, usia < 60 bulan) dilakukan di **service**.
+- Validasi yang butuh database (tanggal kunjungan vs tanggal lahir, peserta masih aktif, usia < 60 bulan) dilakukan di **service**.
 
 ## 8. Penanganan error
 

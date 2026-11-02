@@ -6,29 +6,18 @@ Database: **PostgreSQL 16** (kompatibel ≥ 13). Konvensi penamaan: `snake_case`
 
 ## 1. Diagram
 
-Versi gambar: [`assets/erd.png`](assets/erd.png). Untuk tugas tetap dipakai link dbdiagram (§7).
+Versi gambar: [`assets/erd.png`](assets/erd.png) — **belum diperbarui**, masih memuat tabel `posyandu` yang sudah dihapus (ADR-015); ganti dengan ekspor gambar dari dbdiagram. Untuk tugas tetap dipakai link dbdiagram (§7).
 
 ```mermaid
 erDiagram
-    posyandu ||--o{ kader : "memiliki"
-    posyandu ||--o{ ibu : "melayani"
     ibu ||--o{ balita : "ibu dari"
     ibu ||--o{ pemeriksaan_ibu_hamil : "diperiksa"
     balita ||--o{ pemeriksaan_balita : "diperiksa"
     kader ||--o{ pemeriksaan_balita : "mencatat"
     kader ||--o{ pemeriksaan_ibu_hamil : "mencatat"
 
-    posyandu {
-        serial id PK
-        varchar nama
-        text alamat
-        varchar desa
-        varchar kecamatan
-        varchar kabupaten_kota
-    }
     kader {
         serial id PK
-        int posyandu_id FK
         varchar nama
         varchar username UK
         varchar password_hash
@@ -38,7 +27,6 @@ erDiagram
     }
     ibu {
         serial id PK
-        int posyandu_id FK
         char nik UK "16 digit"
         varchar nama
         date tanggal_lahir
@@ -89,8 +77,6 @@ Semua tabel juga memiliki `created_at` dan `updated_at` (`TIMESTAMPTZ`, default 
 
 | Relasi | Kardinalitas | On delete | Keterangan |
 |---|---|---|---|
-| posyandu → kader | 1 : N | RESTRICT | Setiap akun terikat ke satu posyandu |
-| posyandu → ibu | 1 : N | RESTRICT | Balita mewarisi posyandu dari ibunya |
 | ibu → balita | 1 : N | RESTRICT | Satu ibu dapat memiliki beberapa balita |
 | ibu → pemeriksaan_ibu_hamil | 1 : N | RESTRICT | Riwayat kunjungan kehamilan |
 | balita → pemeriksaan_balita | 1 : N | RESTRICT | Riwayat tumbuh kembang |
@@ -102,21 +88,10 @@ Semua FK memakai `RESTRICT` karena penghapusan dilakukan dengan *soft delete* (`
 
 Legenda: **W** = wajib (NOT NULL), **U** = unik, **D** = default.
 
-### `posyandu`
-| Kolom | Tipe | | Keterangan |
-|---|---|---|---|
-| id | SERIAL | PK | |
-| nama | VARCHAR(100) | W | Mis. "Posyandu Melati" |
-| alamat | TEXT | | |
-| desa, kecamatan, kabupaten_kota | VARCHAR(100) | | |
-
-Fase 1 hanya berisi satu baris (dari seed). Lihat [ADR-002](06-decisions.md).
-
 ### `kader`
 | Kolom | Tipe | | Keterangan |
 |---|---|---|---|
 | id | SERIAL | PK | |
-| posyandu_id | INTEGER | W, FK | |
 | nama | VARCHAR(100) | W | |
 | username | VARCHAR(30) | W, U | Huruf kecil, angka, `_`; 3–30 karakter |
 | password_hash | VARCHAR(255) | W | Hash bcrypt. **Tidak pernah dikirim di respons API** |
@@ -128,7 +103,6 @@ Fase 1 hanya berisi satu baris (dari seed). Lihat [ADR-002](06-decisions.md).
 | Kolom | Tipe | | Keterangan |
 |---|---|---|---|
 | id | SERIAL | PK | |
-| posyandu_id | INTEGER | W, FK | Diisi otomatis dari token |
 | nik | CHAR(16) | W, U* | `CHECK` 16 digit angka |
 | nama | VARCHAR(100) | W | |
 | tanggal_lahir | DATE | W | |
@@ -140,7 +114,7 @@ Fase 1 hanya berisi satu baris (dari seed). Lihat [ADR-002](06-decisions.md).
 | Kolom | Tipe | | Keterangan |
 |---|---|---|---|
 | id | SERIAL | PK | |
-| ibu_id | INTEGER | W, FK | Ibu harus aktif dan satu posyandu |
+| ibu_id | INTEGER | W, FK | Ibu harus aktif |
 | nik | CHAR(16) | U* | Opsional (bayi baru lahir sering belum punya NIK) |
 | nama | VARCHAR(100) | W | |
 | jenis_kelamin | CHAR(1) | W | `'L'` / `'P'` |
@@ -184,23 +158,12 @@ Fase 1 hanya berisi satu baris (dari seed). Lihat [ADR-002](06-decisions.md).
 ```sql
 -- =====================================================================
 -- Sistem Monitoring Kesehatan Ibu & Anak (Posyandu) — skema PostgreSQL
+-- Satu database = satu posyandu di satu desa (ADR-015).
 -- =====================================================================
-
-CREATE TABLE posyandu (
-  id              SERIAL PRIMARY KEY,
-  nama            VARCHAR(100) NOT NULL,
-  alamat          TEXT,
-  desa            VARCHAR(100),
-  kecamatan       VARCHAR(100),
-  kabupaten_kota  VARCHAR(100),
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 CREATE TABLE kader (
   id              SERIAL PRIMARY KEY,
-  posyandu_id     INTEGER NOT NULL REFERENCES posyandu(id) ON DELETE RESTRICT,
-  nama            VARCHAR(100) NOT NULL,
+  nama           VARCHAR(100) NOT NULL,
   username        VARCHAR(30) NOT NULL UNIQUE,
   password_hash   VARCHAR(255) NOT NULL,
   no_hp           VARCHAR(15),
@@ -213,8 +176,7 @@ CREATE TABLE kader (
 
 CREATE TABLE ibu (
   id              SERIAL PRIMARY KEY,
-  posyandu_id     INTEGER NOT NULL REFERENCES posyandu(id) ON DELETE RESTRICT,
-  nik             CHAR(16) NOT NULL,
+  nik            CHAR(16) NOT NULL,
   nama            VARCHAR(100) NOT NULL,
   tanggal_lahir   DATE NOT NULL,
   alamat          TEXT NOT NULL,
@@ -288,8 +250,7 @@ CREATE UNIQUE INDEX uq_pb_per_tanggal   ON pemeriksaan_balita (balita_id, tangga
 CREATE UNIQUE INDEX uq_pih_per_tanggal  ON pemeriksaan_ibu_hamil (ibu_id, tanggal_kunjungan) WHERE deleted_at IS NULL;
 
 -- Indeks pencarian, riwayat, dan rekap
-CREATE INDEX idx_kader_posyandu   ON kader (posyandu_id);
-CREATE INDEX idx_ibu_posyandu     ON ibu (posyandu_id, nama);
+CREATE INDEX idx_ibu_nama         ON ibu (nama);
 CREATE INDEX idx_balita_ibu       ON balita (ibu_id);
 CREATE INDEX idx_pb_tanggal       ON pemeriksaan_balita (tanggal_kunjungan);
 CREATE INDEX idx_pb_kader         ON pemeriksaan_balita (kader_id);
@@ -335,9 +296,8 @@ Aturan ditegakkan di **dua lapis**:
 
 Isi minimal:
 
-1. Satu baris `posyandu` (nama dan alamat posyandu sasaran).
-2. Satu akun `admin` dengan `password_hash` bcrypt dari password awal. Password awal dicatat di README dan **wajib diganti** setelah login pertama (`PATCH /api/auth/password`).
-3. (Opsional, untuk demo/Postman) 1 akun `kader`, 2–3 ibu, 2–3 balita, dan beberapa pemeriksaan di dua bulan berbeda agar riwayat, filter tanggal, dan rekap bisa didemokan. Gunakan NIK fiktif yang jelas palsu (mis. diawali `9999`).
+1. Satu akun `admin` dengan `password_hash` bcrypt dari password awal. Password awal dicatat di README dan **wajib diganti** setelah login pertama (`PATCH /api/auth/password`).
+2. (Opsional, untuk demo/Postman) 1 akun `kader`, 2–3 ibu, 2–3 balita, dan beberapa pemeriksaan di dua bulan berbeda agar riwayat, filter tanggal, dan rekap bisa didemokan. Gunakan NIK fiktif yang jelas palsu (mis. diawali `9999`).
 
 Hash bcrypt dibuat sekali dengan Node (`bcryptjs.hashSync('<password>', 10)`) lalu ditempel ke `seed.sql`. Gunakan `INSERT ... ON CONFLICT DO NOTHING` atau jalankan seed hanya pada database kosong.
 
@@ -355,9 +315,8 @@ Jangan menaruh `CREATE FUNCTION`/`TRIGGER` di `schema.sql` karena dapat menggaga
 
 | Kebutuhan masa depan | Rencana perubahan |
 |---|---|
-| Multi-posyandu | Tambah data `posyandu`; semua query sudah difilter `posyandu_id`. Tambah endpoint kelola posyandu (role super-admin). |
 | Imunisasi | Tabel `jenis_imunisasi` + `imunisasi_balita (balita_id, jenis_imunisasi_id, tanggal, kader_id)` |
-| Jadwal posyandu | Tabel `jadwal_posyandu (posyandu_id, tanggal, jam_mulai, lokasi, keterangan)` |
+| Jadwal posyandu | Tabel `jadwal_posyandu (tanggal, jam_mulai, lokasi, keterangan)` |
 | Episode kehamilan | Tabel `kehamilan (ibu_id, hpht, taksiran_persalinan, status)`; `pemeriksaan_ibu_hamil.kehamilan_id` |
 | Status gizi WHO | Tabel acuan z-score; dihitung dari BB, TB, usia, dan jenis kelamin yang sudah tersimpan |
 | Akun ibu | Tabel `pengguna_ibu` atau kolom akun di `ibu` |

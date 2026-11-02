@@ -11,7 +11,7 @@ Urutan pengerjaan yang disarankan. Setiap milestone diakhiri dengan pemeriksaan 
 
 ## M1 — Database
 - [x] `database/schema.sql` dari [ERD §4](04-erd.md#4-ddl-referensi-databaseschemasql)
-- [x] `database/seed.sql`: posyandu, admin (hash bcrypt), data demo ([ERD §6](04-erd.md#6-seed-databaseseedsql))
+- [x] `database/seed.sql`: admin (hash bcrypt), data demo ([ERD §6](04-erd.md#6-seed-databaseseedsql))
 - [x] `src/db/pool.js` dengan type parser DATE & NUMERIC
 - [x] `GET /api/health`
 - [ ] Impor `schema.sql` ke dbdiagram, share publik, simpan link *(dikerjakan pengguna)*
@@ -27,7 +27,7 @@ Urutan pengerjaan yang disarankan. Setiap milestone diakhiri dengan pemeriksaan 
 - [x] `POST /auth/login` (+ rate limit), `GET /auth/me`, `PATCH /auth/password`
 - [x] Middleware `authenticate`, `authorize`
 - [x] CRUD `/kader` + `PATCH /kader/:id/password` dengan aturan admin terakhir
-- [x] `GET/PUT /posyandu`
+- [x] ~~`GET/PUT /posyandu`~~ dihapus (ADR-015)
 - **Cek:** kader biasa → 403 di `/kader`; kader dinonaktifkan → token lamanya 401.
 
 ## M4 — Ibu & balita (5 route tugas)
@@ -48,16 +48,15 @@ Urutan pengerjaan yang disarankan. Setiap milestone diakhiri dengan pemeriksaan 
 
 ## M7 — Postman & penyerahan tugas
 - [ ] Koleksi `postman/posyandu-api.postman_collection.json` (variabel `baseUrl`, `token`, login menyimpan token otomatis)
-- [ ] Screenshot 5 route (`/balita`: POST, GET semua, GET by ID, PUT, DELETE)
-- [ ] `README.md`: prasyarat, setup, `.env`, perintah DB, akun seed, link dbdiagram
-- [ ] Push ke repo GitHub publik; pastikan `node_modules` dan `.env` tidak ikut
+- [x] Screenshot 5 route (`/balita`: POST, GET semua, GET by ID, PUT, DELETE)
+- [x] `README.md`: prasyarat, setup, `.env`, perintah DB, akun seed (link dbdiagram belum ditambahkan)
+- [x] Push ke repo GitHub publik; pastikan `node_modules` dan `.env` tidak ikut
 - [ ] Isi template laporan: link dbdiagram, link repo, screenshot, deskripsi studi kasus Posyandu (ganti contoh "Kegiatan Desa")
 - [ ] Di deskripsi laporan, jelaskan: DELETE = soft delete (baris tetap ada di DB, hilang dari API); login + peran admin ditambahkan demi keamanan data NIK; ekspor PDF/Excel ditunda (ADR-013)
 
 ## Definition of Done (setiap endpoint)
 - Mengikuti kontrak di [API Spec](05-api-spec.md): path, status code, amplop, nama field
-- Input divalidasi zod; field server (`kader_id`, `posyandu_id`) tidak diambil dari body
-- Di-scope ke posyandu pengguna; data posyandu lain → 404
+- Input divalidasi zod; field server (`kader_id`) tidak diambil dari body
 - Memfilter `deleted_at IS NULL` (termasuk tabel induk)
 - Tidak pernah mengembalikan `password_hash`
 - Ada request-nya di koleksi Postman

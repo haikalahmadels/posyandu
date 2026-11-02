@@ -3,15 +3,15 @@ const ApiError = require('../utils/ApiError');
 const { HARI_INI, usiaBulan, binder, paged } = require('./sql');
 
 const SELECT = `
-  i.id, i.posyandu_id, i.nik, i.nama, i.tanggal_lahir,
+  i.id, i.nik, i.nama, i.tanggal_lahir,
   EXTRACT(YEAR FROM AGE(${HARI_INI}, i.tanggal_lahir))::int AS usia_tahun,
   i.alamat, i.no_hp,
   (SELECT COUNT(*)::int FROM balita b WHERE b.ibu_id = i.id AND b.deleted_at IS NULL) AS jumlah_balita,
   i.created_at, i.updated_at`;
 
-async function list(posyanduId, { q, kunjungan_dari, kunjungan_sampai, hamil, page, limit }) {
+async function list({ q, kunjungan_dari, kunjungan_sampai, hamil, page, limit }) {
   const { params, p } = binder();
-  const where = [`i.posyandu_id = ${p(posyanduId)}`, 'i.deleted_at IS NULL'];
+  const where = ['i.deleted_at IS NULL'];
 
   if (q) where.push(`(i.nama ILIKE ${p(`%${q}%`)} OR i.nik LIKE ${p(`${q}%`)})`);
 
@@ -32,7 +32,7 @@ async function list(posyanduId, { q, kunjungan_dari, kunjungan_sampai, hamil, pa
   return paged({ select: SELECT, from: 'ibu i', where, params, orderBy: 'i.nama, i.id' }, { page, limit });
 }
 
-async function findById(posyanduId, id) {
+async function findById(id) {
   const { rows } = await query(
     `SELECT ${SELECT},
        COALESCE((
@@ -43,42 +43,42 @@ async function findById(posyanduId, id) {
          FROM balita b WHERE b.ibu_id = i.id AND b.deleted_at IS NULL
        ), '[]') AS balita
      FROM ibu i
-     WHERE i.id = $1 AND i.posyandu_id = $2 AND i.deleted_at IS NULL`,
-    [id, posyanduId]
+     WHERE i.id = $1 AND i.deleted_at IS NULL`,
+    [id]
   );
   if (!rows[0]) throw new ApiError(404, 'Data ibu tidak ditemukan');
   return rows[0];
 }
 
-async function create(posyanduId, d) {
+async function create(d) {
   const { rows } = await query(
-    `INSERT INTO ibu (posyandu_id, nik, nama, tanggal_lahir, alamat, no_hp)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [posyanduId, d.nik, d.nama, d.tanggal_lahir, d.alamat, d.no_hp]
+    `INSERT INTO ibu (nik, nama, tanggal_lahir, alamat, no_hp)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [d.nik, d.nama, d.tanggal_lahir, d.alamat, d.no_hp]
   );
-  return findById(posyanduId, rows[0].id);
+  return findById(rows[0].id);
 }
 
-async function update(posyanduId, id, d) {
+async function update(id, d) {
   const { rowCount } = await query(
     `UPDATE ibu SET nik = $1, nama = $2, tanggal_lahir = $3, alamat = $4, no_hp = $5, updated_at = NOW()
-     WHERE id = $6 AND posyandu_id = $7 AND deleted_at IS NULL`,
-    [d.nik, d.nama, d.tanggal_lahir, d.alamat, d.no_hp, id, posyanduId]
+     WHERE id = $6 AND deleted_at IS NULL`,
+    [d.nik, d.nama, d.tanggal_lahir, d.alamat, d.no_hp, id]
   );
   if (!rowCount) throw new ApiError(404, 'Data ibu tidak ditemukan');
-  return findById(posyanduId, id);
+  return findById(id);
 }
 
 // FR-15: satu statement agar balita yang baru ditambahkan bersamaan tetap menghalangi penghapusan.
-async function remove(posyanduId, id) {
+async function remove(id) {
   const { rowCount } = await query(
     `UPDATE ibu SET deleted_at = NOW(), updated_at = NOW()
-     WHERE id = $1 AND posyandu_id = $2 AND deleted_at IS NULL
+     WHERE id = $1 AND deleted_at IS NULL
        AND NOT EXISTS (SELECT 1 FROM balita WHERE ibu_id = $1 AND deleted_at IS NULL)`,
-    [id, posyanduId]
+    [id]
   );
   if (!rowCount) {
-    await findById(posyanduId, id); // 404 jika memang tidak ada
+    await findById(id); // 404 jika memang tidak ada
     throw new ApiError(409, 'Ibu masih memiliki data balita aktif. Hapus data balita terlebih dahulu.');
   }
   return { id };

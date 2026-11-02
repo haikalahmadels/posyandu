@@ -9,7 +9,6 @@ router.use('/auth', require('./auth.routes'));
 
 // Semua route di bawah ini wajib JWT (FR-02)
 router.use(authenticate);
-router.use('/posyandu', require('./posyandu.routes'));
 router.use('/kader', require('./kader.routes'));
 router.use('/ibu', require('./ibu.routes'));
 router.use('/balita', require('./balita.routes'));

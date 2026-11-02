@@ -15,7 +15,7 @@ Menyediakan REST API yang memungkinkan kader posyandu **mencatat, menyimpan, men
 
 ## 2. Ruang lingkup Fase 1
 
-**Termasuk:** autentikasi kader, manajemen akun kader (admin), data posyandu, CRUD ibu, CRUD balita, CRUD pemeriksaan balita, CRUD pemeriksaan ibu hamil, riwayat pemeriksaan, pencarian + filter tanggal kunjungan, rekap bulanan (JSON).
+**Termasuk:** autentikasi kader, manajemen akun kader (admin), CRUD ibu, CRUD balita, CRUD pemeriksaan balita, CRUD pemeriksaan ibu hamil, riwayat pemeriksaan, pencarian + filter tanggal kunjungan, rekap bulanan (JSON).
 
 **Tidak termasuk:** lihat §7.
 
@@ -23,11 +23,11 @@ Menyediakan REST API yang memungkinkan kader posyandu **mencatat, menyimpan, men
 
 | Role | Kemampuan |
 |---|---|
-| `admin` | Semua kemampuan `kader` + kelola akun kader + ubah data posyandu |
+| `admin` | Semua kemampuan `kader` + kelola akun kader |
 | `kader` | Kelola data ibu, balita, pemeriksaan; lihat riwayat; buat rekap |
 
 - Tidak ada registrasi publik. Akun `admin` pertama dibuat lewat seed; akun kader dibuat oleh admin.
-- Setiap akun terikat ke satu posyandu. Semua data yang dapat diakses dibatasi pada posyandu milik akun yang login.
+- Sistem hanya melayani **satu posyandu di satu desa** ([ADR-015](06-decisions.md)). Semua akun yang login mengakses data posyandu yang sama.
 
 ## 4. Kebutuhan fungsional
 
@@ -112,12 +112,12 @@ Definisi perhitungan rekap ada di [API Spec §Laporan](05-api-spec.md#laporan).
 | ID | Kebutuhan |
 |---|---|
 | NFR-01 | **Keamanan:** hash bcrypt (cost ≥ 10), JWT dengan masa berlaku terbatas, `helmet`, CORS dibatasi ke origin frontend, query SQL selalu terparameter. |
-| NFR-02 | **Privasi:** NIK dan data kesehatan hanya dapat diakses pengguna login di posyandu yang sama. Data posyandu lain → 404 (tidak membocorkan keberadaan data). |
+| NFR-02 | **Privasi:** NIK dan data kesehatan hanya dapat diakses pengguna yang login (kader/admin aktif). |
 | NFR-03 | **Integritas data:** validasi di dua lapis (API dengan zod + constraint `CHECK`/`FK`/`UNIQUE` di database). |
 | NFR-04 | **Konsistensi respons:** semua respons memakai format amplop yang sama ([API Spec §Konvensi](05-api-spec.md#konvensi)). |
 | NFR-05 | **Zona waktu:** tanggal bisnis memakai WIB (`Asia/Jakarta`); kolom `DATE` dikirim sebagai string `YYYY-MM-DD` tanpa konversi zona waktu. |
 | NFR-06 | **Performa:** daftar dan riwayat < 500 ms untuk ±1.000 peserta dan ±20.000 pemeriksaan (skala satu posyandu beberapa tahun). |
-| NFR-07 | **Dapat dikembangkan:** skema sudah memuat `posyandu_id` agar dapat menjadi multi-posyandu tanpa migrasi besar. |
+| NFR-07 | **Dapat dikembangkan:** data mentah (BB, TB, usia, tekanan darah) tersimpan lengkap sehingga fitur di luar lingkup (§7) dapat dibangun tanpa merombak skema. |
 | NFR-08 | **Dokumentasi:** koleksi Postman mencakup seluruh endpoint, termasuk contoh kasus gagal validasi. |
 
 ## 7. Di luar lingkup Fase 1
@@ -130,7 +130,7 @@ Definisi perhitungan rekap ada di [API Spec §Laporan](05-api-spec.md#laporan).
 | Ekspor laporan PDF/Excel | Fase 1 cukup JSON; ekspor ditambahkan di atas endpoint rekap yang sama. Menyimpang dari langkah 3 UF04 di laporan UI/UX (lihat [ADR-013](06-decisions.md)). |
 | Imunisasi | Banyak jenis vaksin dan jadwal; akan dibuat tabel tersendiri. |
 | Format SKDN penuh (N/T/O/B) | Perlu aturan kenaikan berat minimal per usia; divalidasi dulu. |
-| Multi-posyandu | Skema sudah siap (ADR-002); endpoint pengelolaan posyandu belum dibuat. |
+| Multi-posyandu | Tidak direncanakan; sistem hanya untuk satu posyandu di satu desa (ADR-015). |
 | Akun ibu | Fase berikutnya. |
 | Data kehamilan per episode (HPHT, taksiran persalinan) | Fase 1 cukup `usia_kehamilan_minggu` per kunjungan; lihat ADR-006. |
 

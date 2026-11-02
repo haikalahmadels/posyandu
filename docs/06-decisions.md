@@ -5,7 +5,7 @@ Catatan keputusan teknis beserta alasannya. Jika keputusan berubah, **jangan hap
 | ID | Keputusan | Status |
 |---|---|---|
 | ADR-001 | Express 5 + `pg` tanpa ORM | Diterima |
-| ADR-002 | Satu posyandu, skema siap multi-posyandu | Diterima |
+| ADR-002 | Satu posyandu, skema siap multi-posyandu | Digantikan oleh ADR-015 |
 | ADR-003 | Soft delete untuk data peserta & pemeriksaan | Diterima |
 | ADR-004 | Tabel ibu & balita terpisah; pemeriksaan dipisah per kelompok | Diterima |
 | ADR-005 | JWT tanpa registrasi publik; akun dibuat admin | Diterima |
@@ -18,6 +18,7 @@ Catatan keputusan teknis beserta alasannya. Jika keputusan berubah, **jangan hap
 | ADR-012 | `schema.sql` tunggal, tanpa trigger | Diterima (Fase 1) |
 | ADR-013 | Ekspor PDF/Excel ditunda ke Fase 2 | Diterima (Fase 1) |
 | ADR-014 | Status "sedang hamil" diperkirakan dari pemeriksaan | Diterima (Fase 1) |
+| ADR-015 | Hanya satu posyandu; tabel `posyandu` dihapus | Diterima |
 
 ---
 
@@ -26,7 +27,7 @@ Catatan keputusan teknis beserta alasannya. Jika keputusan berubah, **jangan hap
 **Keputusan:** Pakai `pg` dengan SQL langsung. Pakai Express 5 karena error dari handler `async` otomatis diteruskan ke error handler.
 **Konsekuensi:** Skema di database sama persis dengan `schema.sql`. Semua query wajib terparameter, dan SQL dikumpulkan di lapis service.
 
-### ADR-002 — Satu posyandu, skema siap multi-posyandu
+### ADR-002 — Satu posyandu, skema siap multi-posyandu *(Digantikan oleh ADR-015)*
 **Konteks:** Fase 1 hanya untuk satu posyandu, tetapi ada kemungkinan dikembangkan ke banyak posyandu.
 **Keputusan:** Tabel `posyandu` ada sejak awal (satu baris dari seed). `kader.posyandu_id` dan `ibu.posyandu_id` wajib diisi. API mengambil `posyandu_id` dari token, bukan dari input. Semua query di-scope ke posyandu tersebut.
 **Konsekuensi:** Untuk menjadi multi-posyandu cukup menambah data dan endpoint kelola posyandu, tanpa migrasi kolom. Biaya di Fase 1: satu JOIN/WHERE tambahan per query.
@@ -44,7 +45,7 @@ Catatan keputusan teknis beserta alasannya. Jika keputusan berubah, **jangan hap
 ### ADR-005 — Autentikasi
 **Konteks:** Data berisi NIK dan informasi kesehatan, jadi tidak boleh bisa diakses siapa saja yang mendaftar.
 **Keputusan:** Tidak ada registrasi publik. Admin pertama dibuat lewat seed, kader dibuat oleh admin. Autentikasi memakai JWT (8 jam) tanpa refresh token. Middleware memuat ulang status kader dari DB di setiap request.
-**Konsekuensi:** Penonaktifan akun langsung berlaku. Ada satu query tambahan per request (dapat diterima untuk skala satu posyandu). Refresh token dipertimbangkan di Fase 2.
+**Konsekuensi:** Penonaktifan akun langsung berlaku. Ada satu query tambahan per request (dapat diterima untuk skala satu posyandu, ADR-015). Refresh token dipertimbangkan di Fase 2.
 
 ### ADR-006 — Belum ada tabel episode kehamilan
 **Konteks:** Rekap ibu hamil idealnya menghitung "ibu yang sedang hamil" sebagai sasaran, dan itu memerlukan data HPHT dan status kehamilan.
@@ -89,3 +90,8 @@ Catatan keputusan teknis beserta alasannya. Jika keputusan berubah, **jangan hap
 **Konteks:** UF01/UF03 menampilkan "ibu hamil" terpisah dari "ibu balita", tetapi Fase 1 belum punya tabel kehamilan (ADR-006).
 **Keputusan:** Filter `GET /ibu?hamil=true` menganggap ibu masih hamil jika ada pemeriksaan kehamilan aktif yang, bila usia kehamilannya diteruskan sampai hari ini, belum melewati 42 minggu. Tidak ada kolom baru.
 **Konsekuensi:** Ini perkiraan: ibu yang sudah melahirkan masih ikut tersaring sampai batas 42 minggu itu terlewati. Digantikan oleh `kehamilan.status` saat tabel `kehamilan` dibuat di Fase 2.
+
+### ADR-015 — Hanya satu posyandu; tabel `posyandu` dihapus
+**Konteks:** Ide proyek diperbarui: sistem hanya dipakai oleh satu posyandu di satu desa dan tidak direncanakan menjadi multi-posyandu. Menggantikan ADR-002.
+**Keputusan:** Tabel `posyandu`, kolom `kader.posyandu_id` dan `ibu.posyandu_id`, endpoint `GET/PUT /posyandu`, serta scoping per posyandu dihapus. Token JWT hanya memuat `sub` dan `role`. Satu database = satu posyandu.
+**Konsekuensi:** Skema dan query lebih sederhana (tanpa JOIN/WHERE posyandu). Semua akun yang login dapat mengakses seluruh data. Identitas posyandu (nama, alamat) tidak disimpan di database; bila dibutuhkan (mis. kop laporan), tampilkan dari frontend. Jika kelak perlu banyak posyandu, diperlukan migrasi kolom dan pembatasan akses baru.

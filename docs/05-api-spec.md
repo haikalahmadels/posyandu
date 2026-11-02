@@ -12,17 +12,15 @@ Aturan validasi tiap field: [ERD §5](04-erd.md#5-aturan-validasi). Arsitektur: 
 | 2 | POST | `/auth/login` | 🔓 | FR-01 |
 | 3 | GET | `/auth/me` | semua | FR-03 |
 | 4 | PATCH | `/auth/password` | semua | FR-04 |
-| 5 | GET | `/posyandu` | semua | Profil posyandu milik akun |
-| 6 | PUT | `/posyandu` | admin | Ubah profil posyandu |
-| 7–11 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/kader` | admin | FR-05 |
-| 12 | PATCH | `/kader/:id/password` | admin | Reset password kader |
-| 13–17 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/ibu` | semua | FR-10, UF03 |
-| 18 | GET | `/ibu/:id/pemeriksaan` | semua | UF01 (riwayat ibu hamil) |
-| 19–23 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/balita` | semua | FR-11, UF03 |
-| 24 | GET | `/balita/:id/pemeriksaan` | semua | UF01 (riwayat balita) |
-| 25–29 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/pemeriksaan-balita` | semua | UF02 |
-| 30–34 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/pemeriksaan-ibu-hamil` | semua | UF02 |
-| 35 | GET | `/laporan/bulanan` | semua | UF04 |
+| 5–9 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/kader` | admin | FR-05 |
+| 10 | PATCH | `/kader/:id/password` | admin | Reset password kader |
+| 11–15 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/ibu` | semua | FR-10, UF03 |
+| 16 | GET | `/ibu/:id/pemeriksaan` | semua | UF01 (riwayat ibu hamil) |
+| 17–21 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/balita` | semua | FR-11, UF03 |
+| 22 | GET | `/balita/:id/pemeriksaan` | semua | UF01 (riwayat balita) |
+| 23–27 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/pemeriksaan-balita` | semua | UF02 |
+| 28–32 | GET · GET/:id · POST · PUT/:id · DELETE/:id | `/pemeriksaan-ibu-hamil` | semua | UF02 |
+| 33 | GET | `/laporan/bulanan` | semua | UF04 |
 
 ---
 
@@ -63,7 +61,7 @@ Aturan validasi tiap field: [ERD §5](04-erd.md#5-aturan-validasi). Arsitektur: 
 | 400 | Validasi gagal, JSON rusak, nilai di luar rentang |
 | 401 | Tidak ada token, token invalid/kedaluwarsa, akun nonaktif, login gagal |
 | 403 | Role tidak berhak (kader mengakses `/kader`) |
-| 404 | Data tidak ada, sudah dihapus, atau milik posyandu lain; route tidak ada |
+| 404 | Data tidak ada atau sudah dihapus; route tidak ada |
 | 409 | Duplikat (NIK, username, pemeriksaan di tanggal sama) atau data masih dipakai |
 | 429 | Terlalu banyak percobaan login |
 | 500 | Kesalahan server |
@@ -112,14 +110,14 @@ Respons 200
   "data": {
     "token": "eyJhbGciOi...",
     "expires_in": "8h",
-    "kader": { "id": 1, "nama": "Admin Posyandu", "username": "admin", "role": "admin", "posyandu_id": 1 }
+    "kader": { "id": 1, "nama": "Admin Posyandu", "username": "admin", "role": "admin" }
   }
 }
 ```
 Gagal (username tidak ada, password salah, atau akun nonaktif) → 401 `"Username atau password salah"`.
 
 ### `GET /auth/me`
-Respons 200: `data` = objek kader (tanpa `password_hash`) + `posyandu: { id, nama }`.
+Respons 200: `data` = objek kader (tanpa `password_hash`).
 
 ### `PATCH /auth/password`
 ```json
@@ -131,32 +129,18 @@ Respons 200: `data` = objek kader (tanpa `password_hash`) + `posyandu: { id, nam
 
 ---
 
-## Posyandu
-
-### `GET /posyandu`
-Profil posyandu milik akun yang login.
-```json
-{ "success": true, "message": "Data posyandu berhasil diambil",
-  "data": { "id": 1, "nama": "Posyandu Melati", "alamat": "Jl. ...", "desa": "...", "kecamatan": "...", "kabupaten_kota": "...", "created_at": "...", "updated_at": "..." } }
-```
-
-### `PUT /posyandu` (admin)
-Body: `nama` (wajib), `alamat`, `desa`, `kecamatan`, `kabupaten_kota`.
-
----
-
 ## Kader (admin)
 
 Objek kader (tanpa `password_hash`):
 ```json
-{ "id": 2, "posyandu_id": 1, "nama": "Sri Wahyuni", "username": "sri", "no_hp": "081234567890", "role": "kader", "is_active": true, "created_at": "...", "updated_at": "..." }
+{ "id": 2, "nama": "Sri Wahyuni", "username": "sri", "no_hp": "081234567890", "role": "kader", "is_active": true, "created_at": "...", "updated_at": "..." }
 ```
 
 | Endpoint | Keterangan |
 |---|---|
 | `GET /kader?q=&is_active=&page=&limit=` | `q` cocok ke nama/username; `is_active` = `true`/`false`; urut nama |
-| `GET /kader/:id` | Hanya kader di posyandu yang sama |
-| `POST /kader` | Body: `nama`*, `username`*, `password`*, `no_hp`, `role` (default `kader`). `posyandu_id` = posyandu admin. 201 |
+| `GET /kader/:id` | |
+| `POST /kader` | Body: `nama`*, `username`*, `password`*, `no_hp`, `role` (default `kader`). 201 |
 | `PUT /kader/:id` | Body: `nama`*, `username`*, `no_hp`, `role`*, `is_active`*. Password **tidak** diubah di sini |
 | `DELETE /kader/:id` | Set `is_active = false` (bukan dihapus; riwayat pencatatan tetap utuh) |
 | `PATCH /kader/:id/password` | Body: `password_baru`*. Reset oleh admin |
@@ -172,7 +156,7 @@ Aturan (FR-07):
 Objek ibu:
 ```json
 {
-  "id": 3, "posyandu_id": 1, "nik": "9999010101950001", "nama": "Siti Aminah",
+  "id": 3, "nik": "9999010101950001", "nama": "Siti Aminah",
   "tanggal_lahir": "1995-01-01", "usia_tahun": 31,
   "alamat": "RT 01 / RW 02", "no_hp": "081234567890",
   "jumlah_balita": 1,
@@ -264,7 +248,7 @@ Objek balita + `ibu` lengkap (`id, nama, nik, no_hp, alamat`) + `pemeriksaan_ter
 { "ibu_id": 3, "nik": null, "nama": "Ani", "jenis_kelamin": "P", "tanggal_lahir": "2025-03-10" }
 ```
 Wajib: `ibu_id`, `nama`, `jenis_kelamin`, `tanggal_lahir`.
-- `ibu_id` tidak ada / terhapus / beda posyandu → 400, `errors: [{ field: "ibu_id", message: "Ibu tidak ditemukan" }]` (400, bukan 404, karena kesalahan ada di isi body).
+- `ibu_id` tidak ada / terhapus → 400, `errors: [{ field: "ibu_id", message: "Ibu tidak ditemukan" }]` (400, bukan 404, karena kesalahan ada di isi body).
 - Usia ≥ 60 bulan → 400 pada `tanggal_lahir`.
 
 ### `PUT /balita/:id`
@@ -323,7 +307,7 @@ POST body:
 ```
 
 Validasi di service, setelah zod:
-1. Balita ada, aktif, dan satu posyandu, jika tidak → 400 `balita_id` "Balita tidak ditemukan".
+1. Balita ada dan aktif (ibunya juga aktif), jika tidak → 400 `balita_id` "Balita tidak ditemukan".
 2. `tanggal_kunjungan` ≥ `balita.tanggal_lahir` → jika tidak, 400.
 3. Usia pada `tanggal_kunjungan` < 60 bulan → jika tidak, 400.
 4. `kader_id` = `req.user.id`.
@@ -350,7 +334,7 @@ POST body:
 { "ibu_id": 3, "tanggal_kunjungan": "2026-10-05", "usia_kehamilan_minggu": 20, "berat_badan": 58.5,
   "tekanan_sistolik": 120, "tekanan_diastolik": 80, "lila": 25, "keluhan": null, "catatan": null }
 ```
-Query daftar: `ibu_id`, `dari`, `sampai`, `page`, `limit`. Validasi service: ibu ada, aktif, dan satu posyandu; `tanggal_kunjungan` ≥ `ibu.tanggal_lahir`; duplikat tanggal → 409.
+Query daftar: `ibu_id`, `dari`, `sampai`, `page`, `limit`. Validasi service: ibu ada dan aktif; `tanggal_kunjungan` ≥ `ibu.tanggal_lahir`; duplikat tanggal → 409.
 
 ---
 
@@ -368,7 +352,7 @@ Periode = tanggal 1 s.d. hari terakhir bulan tersebut (inklusif), disebut `awal`
 #### Kelompok `balita`
 
 Definisi:
-- **Sasaran (`jumlah_terdaftar`)**: balita aktif (ibu juga aktif, posyandu sama) dengan `tanggal_lahir ≤ akhir` dan usia < 60 bulan pada `akhir`, **serta** sudah terdaftar pada periode itu, yaitu `created_at` (WIB) ≤ `akhir` **atau** punya pemeriksaan ≤ `akhir`. Klausa "atau" memastikan data lama yang baru diinput tetap terhitung.
+- **Sasaran (`jumlah_terdaftar`)**: balita aktif (ibu juga aktif) dengan `tanggal_lahir ≤ akhir` dan usia < 60 bulan pada `akhir`, **serta** sudah terdaftar pada periode itu, yaitu `created_at` (WIB) ≤ `akhir` **atau** punya pemeriksaan ≤ `akhir`. Klausa "atau" memastikan data lama yang baru diinput tetap terhitung.
 - **`jumlah_diperiksa`**: jumlah balita sasaran yang memiliki ≥1 pemeriksaan aktif di periode.
 - **`jumlah_pemeriksaan`**: jumlah baris pemeriksaan aktif balita sasaran di periode.
 - **`cakupan_persen`**: `jumlah_diperiksa / jumlah_terdaftar × 100`, dibulatkan 1 desimal; `0` jika sasaran 0.
@@ -381,7 +365,6 @@ Definisi:
   "data": {
     "periode": { "bulan": "2026-10", "awal": "2026-10-01", "akhir": "2026-10-31" },
     "kelompok": "balita",
-    "posyandu": { "id": 1, "nama": "Posyandu Melati" },
     "ringkasan": { "jumlah_terdaftar": 25, "jumlah_diperiksa": 20, "cakupan_persen": 80.0, "jumlah_pemeriksaan": 21 },
     "rincian": [
       { "balita_id": 1, "nama": "Ani", "nik": null, "jenis_kelamin": "P", "nama_ibu": "Siti Aminah",
@@ -393,26 +376,25 @@ Definisi:
 }
 ```
 
-Referensi SQL (sudah diuji di PostgreSQL 16; `$1` = posyandu_id, `$2` = awal, `$3` = akhir):
+Referensi SQL (`$1` = awal, `$2` = akhir):
 ```sql
 WITH sasaran AS (
   SELECT b.id, b.nama, b.nik, b.jenis_kelamin, b.tanggal_lahir, i.nama AS nama_ibu
   FROM balita b
   JOIN ibu i ON i.id = b.ibu_id
   WHERE b.deleted_at IS NULL AND i.deleted_at IS NULL
-    AND i.posyandu_id = $1
-    AND b.tanggal_lahir <= $3
-    AND b.tanggal_lahir > ($3::date - INTERVAL '60 months')::date
+    AND b.tanggal_lahir <= $2
+    AND b.tanggal_lahir > ($2::date - INTERVAL '60 months')::date
     AND (
-      (b.created_at AT TIME ZONE 'Asia/Jakarta')::date <= $3
+      (b.created_at AT TIME ZONE 'Asia/Jakarta')::date <= $2
       OR EXISTS (SELECT 1 FROM pemeriksaan_balita x
-                 WHERE x.balita_id = b.id AND x.deleted_at IS NULL AND x.tanggal_kunjungan <= $3)
+                 WHERE x.balita_id = b.id AND x.deleted_at IS NULL AND x.tanggal_kunjungan <= $2)
     )
 ),
 periode AS (
   SELECT pb.* FROM pemeriksaan_balita pb
   JOIN sasaran s ON s.id = pb.balita_id
-  WHERE pb.deleted_at IS NULL AND pb.tanggal_kunjungan BETWEEN $2 AND $3
+  WHERE pb.deleted_at IS NULL AND pb.tanggal_kunjungan BETWEEN $1 AND $2
 ),
 terakhir AS (
   SELECT DISTINCT ON (balita_id) * FROM periode
@@ -428,7 +410,7 @@ SELECT
 #### Kelompok `ibu_hamil`
 
 Fase 1 belum menyimpan status kehamilan aktif ([ADR-006](06-decisions.md)), jadi **sasaran tidak dihitung**.
-- **`jumlah_diperiksa`**: jumlah ibu (aktif, posyandu sama) dengan ≥1 pemeriksaan ibu hamil di periode.
+- **`jumlah_diperiksa`**: jumlah ibu aktif dengan ≥1 pemeriksaan ibu hamil di periode.
 - **`jumlah_pemeriksaan`**: jumlah baris pemeriksaan di periode.
 - **`rincian`**: pemeriksaan terakhir per ibu di periode; field `ibu_id, nama, nik, usia_tahun, tanggal_kunjungan, usia_kehamilan_minggu, berat_badan, tekanan_sistolik, tekanan_diastolik, lila, keluhan, catatan`; urut nama.
 
@@ -437,7 +419,6 @@ Fase 1 belum menyimpan status kehamilan aktif ([ADR-006](06-decisions.md)), jadi
   "data": {
     "periode": { "bulan": "2026-10", "awal": "2026-10-01", "akhir": "2026-10-31" },
     "kelompok": "ibu_hamil",
-    "posyandu": { "id": 1, "nama": "Posyandu Melati" },
     "ringkasan": { "jumlah_diperiksa": 8, "jumlah_pemeriksaan": 9 },
     "rincian": [ ],
     "dibuat_pada": "..."

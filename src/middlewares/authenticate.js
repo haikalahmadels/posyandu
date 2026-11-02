@@ -10,7 +10,7 @@ module.exports = async (req, res, next) => {
 
   const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
   const { rows } = await query(
-    'SELECT id, nama, username, role, posyandu_id FROM kader WHERE id = $1 AND is_active',
+    'SELECT id, nama, username, role FROM kader WHERE id = $1 AND is_active',
     [Number(payload.sub)]
   );
   if (!rows[0]) throw new ApiError(401, 'Sesi tidak valid, silakan login ulang');

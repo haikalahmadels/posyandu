@@ -102,14 +102,17 @@ test('tanpa token → 401; /auth/me tidak membocorkan password_hash', async () =
   const r = await api('GET', '/auth/me');
   assert.equal(r.status, 200);
   assert.equal(r.body.data.username, 'admin');
-  assert.equal(r.body.data.posyandu.nama, 'Posyandu Melati');
   assert.ok(!('password_hash' in r.body.data));
 });
 
-test('kader biasa → 403 di /kader dan PUT /posyandu', async () => {
+test('kader biasa → 403 di /kader', async () => {
   assert.equal((await api('GET', '/kader', { as: 'sri' })).status, 403);
-  assert.equal((await api('PUT', '/posyandu', { as: 'sri', body: { nama: 'X' } })).status, 403);
-  assert.equal((await api('GET', '/posyandu', { as: 'sri' })).status, 200);
+});
+
+test('tidak ada lagi tabel/route posyandu (ADR-015)', async () => {
+  assert.equal((await api('GET', '/posyandu')).status, 404);
+  const { rows } = await db.query("SELECT to_regclass('posyandu') AS t");
+  assert.equal(rows[0].t, null);
 });
 
 test('kader dinonaktifkan → token lamanya 401, login 401', async () => {
@@ -188,21 +191,21 @@ test('ibu yang masih punya balita aktif tidak bisa dihapus → 409', async () =>
   assert.equal(r.status, 409);
 });
 
-test('data posyandu lain → 404', async () => {
-  const { rows: [p] } = await db.query("INSERT INTO posyandu (nama) VALUES ('Posyandu Lain') RETURNING id");
-  const { rows: [i] } = await db.query(
-    `INSERT INTO ibu (posyandu_id, nik, nama, tanggal_lahir, alamat)
-     VALUES ($1, '9999888877776666', 'Ibu Lain', '1990-01-01', 'Desa lain') RETURNING id`,
-    [p.id]
-  );
-  assert.equal((await api('GET', `/ibu/${i.id}`)).status, 404);
-  assert.equal((await api('DELETE', `/ibu/${i.id}`)).status, 404);
+test('ibu yang dihapus: hilang dari API dan tidak bisa dipakai untuk balita baru', async () => {
+  const buat = await api('POST', '/ibu', {
+    body: { nik: '9999888877776666', nama: 'Ibu Pindah', tanggal_lahir: '1990-01-01', alamat: 'RT 09' },
+  });
+  assert.equal(buat.status, 201);
+  const id = buat.body.data.id;
+  assert.equal((await api('DELETE', `/ibu/${id}`)).status, 200);
+  assert.equal((await api('GET', `/ibu/${id}`)).status, 404);
+  assert.equal((await api('DELETE', `/ibu/${id}`)).status, 404);
   const tambahBalita = await api('POST', '/balita', {
-    body: { ibu_id: i.id, nama: 'Anak Lain', jenis_kelamin: 'L', tanggal_lahir: '2025-01-01' },
+    body: { ibu_id: id, nama: 'Anak', jenis_kelamin: 'L', tanggal_lahir: '2025-01-01' },
   });
   assert.equal(tambahBalita.status, 400);
   assert.equal(tambahBalita.body.errors[0].field, 'ibu_id');
-  assert.ok(!(await api('GET', '/ibu?q=Lain')).body.data.length);
+  assert.ok(!(await api('GET', '/ibu?q=Pindah')).body.data.length);
 });
 
 // ---------- M4: 5 route /balita (syarat tugas) ----------
