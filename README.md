@@ -39,6 +39,7 @@ Catatan: `DELETE` memakai *soft delete* — data hilang dari API tetapi baris te
 | POST — tambah balita | ![POST](docs/assets/postman/post.png) |
 | GET — semua balita | ![GET semua](docs/assets/postman/get-semua.png) |
 | GET — balita berdasarkan ID | ![GET by ID](docs/assets/postman/get-by-id.png) |
+| GET — balita berdasarkan nama (`?q=Citra`) | ![GET by nama](docs/assets/postman/get-by-nama.png) |
 | PUT — ubah balita | ![PUT](docs/assets/postman/put.png) |
 | DELETE — hapus balita | ![DELETE](docs/assets/postman/delete.png) |
 
